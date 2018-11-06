@@ -8,39 +8,31 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 # I refered https://github.com/c0nn3r/RetinaNet/blob/master/focal_loss.py
 
-class FocalLoss2d(nn.Module):
+class FocalLoss2d(nn.modules.loss._WeightedLoss):
 
-    def __init__(self, gamma=0, weight=None, size_average=True):
-        super(FocalLoss2d, self).__init__()
-
+    def __init__(self, gamma=0, weight=None, size_average=None, ignore_index=-100,
+                 reduce=None, reduction='mean', balance_param=0.25):
+        super(FocalLoss2d, self).__init__(weight, size_average, reduce, reduction)
         self.gamma = gamma
         self.weight = weight
         self.size_average = size_average
+        self.ignore_index = ignore_index
+        self.balance_param = balance_param
 
     def forward(self, input, target):
-        if input.dim()>2:
-            input = input.contiguous().view(input.size(0), input.size(1), -1)
-            input = input.transpose(1,2)
-            input = input.contiguous().view(-1, input.size(2)).squeeze()
-        if target.dim()==4:
-            target = target.contiguous().view(target.size(0), target.size(1), -1)
-            target = target.transpose(1,2)
-            target = target.contiguous().view(-1, target.size(2)).squeeze()
-        elif target.dim()==3:
-            target = target.view(-1)
-        else:
-            target = target.view(-1, 1)
-
-        # compute the negative likelyhood
+        
+        # inputs and targets are assumed to be BatchxClasses
+        assert len(input.shape) == len(target.shape)
+        assert input.size(0) == target.size(0)
+        assert input.size(1) == target.size(1)
+        
         weight = Variable(self.weight)
-        logpt = -F.cross_entropy(input, target)
+           
+        # compute the negative likelyhood
+        logpt = - F.binary_cross_entropy_with_logits(input, target, pos_weight=weight, reduction=self.reduction)
         pt = torch.exp(logpt)
 
         # compute the loss
-        loss = -((1-pt)**self.gamma) * logpt
-
-        # averaging (or not) loss
-        if self.size_average:
-            return loss.mean()
-        else:
-            return loss.sum()
+        focal_loss = -( (1-pt)**self.gamma ) * logpt
+        balanced_focal_loss = self.balance_param * focal_loss
+        return balanced_focal_loss
