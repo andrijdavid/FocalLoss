@@ -10,7 +10,7 @@ from torch.autograd import Variable
 
 class FocalLoss2d(nn.modules.loss._WeightedLoss):
 
-    def __init__(self, gamma=0, weight=None, size_average=None, ignore_index=-100,
+    def __init__(self, gamma=2, weight=None, size_average=None, ignore_index=-100,
                  reduce=None, reduction='mean', balance_param=0.25):
         super(FocalLoss2d, self).__init__(weight, size_average, reduce, reduction)
         self.gamma = gamma
